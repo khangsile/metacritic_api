@@ -1,5 +1,5 @@
 import urllib2, re, sys, time
-from metacritic import MetaCriticInfo, TVCriticInfo
+from metacritic import MetaCriticInfo, TVCriticInfo, TVSeriesInfo
 from bs4 import BeautifulSoup
 
 BASE_URL = "http://www.metacritic.com"
@@ -95,23 +95,8 @@ def searchTVSeries(query):
 
   series = __getFirstResult(query, 'tv')
   
-  firstSeason = TVCriticInfo(series['title'], series['type'], series['link'])
-  seasons = []
-  seasons.append(firstSeason)
-
-  soup = BeautifulSoup(firstSeason.page)
-
-  soup = soup.find('li', {'class': 'summary_detail product_seasons'})
+  series = TVSeriesInfo(series['title'], series['type'], series['link'])
   
-  seasonData = soup.find('span', {'class': 'data'})
-  
-  seasonLinks = seasonData.find_all('a')
-  
-  for link in seasonLinks:
-    link = BASE_URL+link['href']
-    seasons.append(TVCriticInfo(series['title'], series['type'], link))
+  return sorted(series.series, key = lambda season: season.season)
 
-  if not seasonLinks:
-    return firstSeason
-
-  return seasons
+  

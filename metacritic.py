@@ -1,5 +1,7 @@
-import urllib2, re, sys, time
+import urllib2, re, sys,threading
 from bs4 import BeautifulSoup
+
+BASE_URL = "http://www.metacritic.com"
 
 class MetaCriticInfo(object):
   def __init__(self):
@@ -99,8 +101,10 @@ class MetaCriticInfo(object):
       return "Page Does Not Exist"
     
     soup = BeautifulSoup(req)
+        
+    releaseData = soup.find("li", 
+      {"class" : "summary_detail release_data"})
 
-    releaseData = soup.find("li", {"class" : "summary_detail release_data"});
     date = releaseData.find("span", { "class": "data"}).renderContents()
 
     return date
@@ -150,5 +154,41 @@ class TVCriticInfo(MetaCriticInfo):
 
     return season
 
+class TVSeriesInfo(object):
+  def __init__(self, firstTitle, firstType, firstLink):
+    self.series = [];
+    self.lock = threading.RLock()
 
+    self.__createSeries(firstTitle, firstType, firstLink)
 
+  def __updateSeries(self, seasonTitle, seasonType=None, seasonLink=None):
+    if seasonType and seasonLink:
+      season = TVCriticInfo(seasonTitle, seasonType, seasonLink)
+    else:
+      season = seasonTitle
+
+    with self.lock:
+      self.series.append(season)
+
+  def __createSeries(self, seasonTitle, seasonType, seasonLink):
+    firstSeason = TVCriticInfo(seasonTitle, seasonType, seasonLink)
+    self.series.append(firstSeason)
+
+    soup = BeautifulSoup(firstSeason.page)
+
+    soup = soup.find('li', {'class': 'summary_detail product_seasons'})
+
+    seasonData = soup.find('span', {'class': 'data'})
+
+    seasonLinks = seasonData.find_all('a')
+
+    for link in seasonLinks:
+      link = BASE_URL+link['href']
+      mythread = threading.Thread(target = self.__updateSeries,
+        args = (seasonTitle, seasonType, link))
+      mythread.start()
+    
+    for thread in threading.enumerate():
+      if thread is not threading.currentThread():
+        thread.join()
+      
