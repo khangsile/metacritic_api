@@ -1,99 +1,15 @@
-import urllib2, re, sys, pycurl, time
+import urllib2, re, sys, time
 from bs4 import BeautifulSoup
-from StringIO import StringIO
 
-query = ["Mad Men", "tv"]
-
-def __getType(soup):
-  typeSoup = soup.find('div', {'class': 'result_type'})
-  type = typeSoup.find('strong').renderContents()
-
-  return type
-
-def __getTitleInfo(soup):
-  titleSoup = soup.find('h3', 
-    {'class': 'product_title basic_stat'})
-
-  if titleSoup != None:
-    titleTag = titleSoup.find('a')
-  else:
-    titleTag = None
-
-  return titleTag
-  
-def __getLink(soup):
-  titleTag = __getTitleInfo(soup)
-  
-  if titleTag != None:
-    link = titleTag.get('href')
-  else:
-    link = "/does/not/exist"
-
-  return link
-
-def __getTitle(soup):
-  titleTag = __getTitleInfo(soup)
-
-  if titleTag != None:
-    title = titleTag.renderContents()
-  else:
-    title = None
-
-  return title
-
-def searchFirst(query, type):
-  BASE_URL = "http://www.metacritic.com"
-  search = "/search/%type/%query/results"
-
-  search = search.replace('%type', type)
-
-  query = query.strip().replace(' ', '+')
-  search = search.replace('%query', query) 
-  
-  success = False
-  while success != True:
-    try:
-      page = urllib2.urlopen(BASE_URL+search)
-      success = True
-    except urllib2.HTTPError, e:
-      success = False
-      
-  soup = BeautifulSoup(page)
-  
-  soup = soup.find('li', 
-    {'class': 'result first_result'})
-  
-  metacritic = []
-  metacritic['type'] = __getType(soup)
-  link = __getLink(soup)
-  metacritic['link'] = BASE_URL+link
-  metacritic['title'] = __getTitle(soup)
-
-  return metacritic   
-
-def searchFirstResult(query, type):
-  if type == None:
-    type = "all"
-  
-  metacritic = searchFirst(query, type)
-
-  type = metacritic['type']
-  link = metacritic['link']
-  title = metacritic['title']
-
-  return MetaCritic(title, type, link)
-
-def searchTVSeries(query):
-
-  firstSeason = searchFirstResult(query, 'tv')
-
-  soup = BeautifulSoup(season1.page)
-
-  seasonsSoup = soup.find("li", "class": {"summary_detail product_seasons"})
-  if not seasonsSoup:
-    return season1
-
-class MetaCritic:
+class MetaCriticInfo(object):
+  def __init__(self):
+    self.title = None;
+    self.type = None;
+    self.page = None;
+    self.criticscore = None;
+    self.userscore = None;
+    self.releaseDate = None;
+    self.summary = None;
 
   def __init__(self, title, type, url):
     if title == None:
@@ -114,7 +30,7 @@ class MetaCritic:
 
   def __getPage(self, url):
     try:
-      page = urllib2.urlopen(url)
+      page = urllib2.urlopen(url+"/details")
       page = page.read()
     except urllib2.HTTPError, e:
       page = "404"
@@ -122,7 +38,7 @@ class MetaCritic:
     return page
 
   def __getScore(self, soup):
-    scoreSection = soup.find('span')
+    scoreSection = soup.find("span")
 
     score = scoreSection.renderContents()
   
@@ -131,7 +47,7 @@ class MetaCritic:
     else:
       score = float(score)
 
-    rangeSection = scoreSection.findNextSibling('span').renderContents()
+    rangeSection = scoreSection.findNextSibling("span").renderContents()
     range = re.search("\d+", rangeSection).group()
     range = float(range)
 
@@ -143,22 +59,25 @@ class MetaCritic:
   def __getCriticScore(self):
     req = self.page
   
-    if req == '404':
+    if req == "404":
       return "Page Does Not Exist"
 
     soup = BeautifulSoup(req)
 
     criticinfo = soup.find("div",
-      {"class": "metascore_wrap highlight_metascore"})
+      {"class": "metascore_wrap feature_metascore"})
 
     percent = self.__getScore(criticinfo)
-  
+    
+    if percent == 0:
+      return "N/A"
+
     return percent
   
   def __getUserScore(self):
     req = self.page
-    
-    if req == '404':
+
+    if req == "404":
       return "Page Does Not Exist"
 
     soup = BeautifulSoup(req)
@@ -168,12 +87,15 @@ class MetaCritic:
 
     percent = self.__getScore(usersinfo)
   
+    if percent == 0:
+      return "N/A"
+
     return percent
 
   def __getReleaseDate(self):
     req = self.page
 
-    if req == '404':
+    if req == "404":
       return "Page Does Not Exist"
     
     soup = BeautifulSoup(req)
@@ -186,12 +108,12 @@ class MetaCritic:
   def __getSummary(self):
     req = self.page
 
-    if req == '404':
+    if req == "404":
       return "Page Does Not Exist"
 
     soup = BeautifulSoup(req)
 
-    summaryData = soup.find("li", 
+    summaryData = soup.find("div", 
       {"class" : "summary_detail product_summary"})
 
     blurbCollapsed = summaryData.find("span", 
@@ -215,27 +137,18 @@ class MetaCritic:
 
     return summary
 
-class TVCritic(MetaCritic):
+class TVCriticInfo(MetaCriticInfo):
   def __init__(self, title, type, url):
-    super(TVCritic, self).__init__(title, type, url)
-    self.season = __getSeason()
+    super(TVCriticInfo, self).__init__(title, type, url)
+    self.season = self.__getSeason()
 
   def __getSeason(self):
     soup = BeautifulSoup(self.page)
     
-    season = soup.find('div', {'class':'product_title'}).find('a').renderContents()
+    season = soup.find("div", 
+      {"class":"product_title"}).find("a").renderContents()
 
     return season
 
-not_found = 0;
-found = 0;
-
-meta = searchFirstResult(query[0], query[1])
-  
-print meta.title
-print meta.type
-print meta.summary
-print meta.criticscore
-print meta.userscore
 
 
