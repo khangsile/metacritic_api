@@ -76,11 +76,15 @@ def __getFirstResult(query, type):
 
   return metacritic   
 
-def searchFirstResult(query, type):
+def searchFirstResult(query, type = None):
   if type == None or type.strip() == '':
     type = 'all'
   
+  start = time.time()
   metacritic = __getFirstResult(query, type)
+  end = time.time()
+
+  print "getFirstResult: " + str(end-start)
 
   type = metacritic['type']
   link = metacritic['link']
@@ -88,8 +92,13 @@ def searchFirstResult(query, type):
 
   if type == 'tv':
     return TVCriticInfo(title, type, link)
+  
+  start = time.time()
+  meat = MetaCriticInfo(title, type, link)
+  end = time.time()
 
-  return MetaCriticInfo(title, type, link)
+  print "MEat: " + str(end-start)
+  return meat
 
 def searchTVSeries(query):
 
@@ -97,6 +106,6 @@ def searchTVSeries(query):
   
   series = TVSeriesInfo(series['title'], series['type'], series['link'])
   
-  return sorted(series.series, key = lambda season: season.season)
+  return series.series
 
   

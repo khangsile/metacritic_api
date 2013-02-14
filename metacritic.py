@@ -1,4 +1,4 @@
-import urllib2, re, sys,threading
+import urllib2, re, sys, threading, time, thread, requests
 from bs4 import BeautifulSoup
 
 BASE_URL = "http://www.metacritic.com"
@@ -24,16 +24,49 @@ class MetaCriticInfo(object):
     else:
       self.type = type
     
+    self.page = None
+    self.criticscore = None
+    self.userscore = None
+    self.releaseDate = None
+    self.summary = None
+
     self.page = self.__getPage(url)
-    self.criticscore = self.__getCriticScore()
-    self.userscore = self.__getUserScore()
-    self.releaseDate = self.__getReleaseDate()
-    self.summary = self.__getSummary()
+
+    #threaded functions below - none interleave
+
+    csThread = threading.Thread(target = self.__getCriticScore)
+    #csThread.start()
+
+    usThread = threading.Thread(target = self.__getUserScore)
+    #usThread.start()
+
+    rdThread = threading.Thread(target = self.__getReleaseDate)
+    #rdThread.start()
+
+    sumThread = threading.Thread(target = self.__getSummary)
+    #sumThread.start()
+
+    #for thread in threading.enumerate():
+    #  if thread is not threading.currentThread():
+    #    thread.join()
+    
+    csThread.start()
+    usThread.start()
+    rdThread.start()
+    sumThread.start()
+
+    #self.__getCriticScore()
+    #self.__getUserScore()
+    #self.__getReleaseDate()
+    #self.__getSummary()
 
   def __getPage(self, url):
-    try:
+    
+    try:      
       page = urllib2.urlopen(url+"/details")
-      page = page.read()
+      #page = requests.get(url+"/details")
+      #page = page.text
+      page = BeautifulSoup(page)
     except urllib2.HTTPError, e:
       page = "404"
       
@@ -64,7 +97,7 @@ class MetaCriticInfo(object):
     if req == "404":
       return "Page Does Not Exist"
 
-    soup = BeautifulSoup(req)
+    soup = req
 
     criticinfo = soup.find("div",
       {"class": "metascore_wrap feature_metascore"})
@@ -74,7 +107,7 @@ class MetaCriticInfo(object):
     if percent == 0:
       return "N/A"
 
-    return percent
+    self.criticscore = percent
   
   def __getUserScore(self):
     req = self.page
@@ -82,7 +115,7 @@ class MetaCriticInfo(object):
     if req == "404":
       return "Page Does Not Exist"
 
-    soup = BeautifulSoup(req)
+    soup = req
     
     usersinfo = soup.find("div", 
       {"class" : "userscore_wrap feature_userscore"})
@@ -92,7 +125,7 @@ class MetaCriticInfo(object):
     if percent == 0:
       return "N/A"
 
-    return percent
+    self.userscore = percent
 
   def __getReleaseDate(self):
     req = self.page
@@ -100,14 +133,14 @@ class MetaCriticInfo(object):
     if req == "404":
       return "Page Does Not Exist"
     
-    soup = BeautifulSoup(req)
+    soup = req
         
     releaseData = soup.find("li", 
       {"class" : "summary_detail release_data"})
 
     date = releaseData.find("span", { "class": "data"}).renderContents()
 
-    return date
+    self.releaseDate = date
 
   def __getSummary(self):
     req = self.page
@@ -115,7 +148,7 @@ class MetaCriticInfo(object):
     if req == "404":
       return "Page Does Not Exist"
 
-    soup = BeautifulSoup(req)
+    soup = req
 
     summaryData = soup.find("div", 
       {"class" : "summary_detail product_summary"})
@@ -139,7 +172,7 @@ class MetaCriticInfo(object):
       if summary:
         summary = summary.renderContents().strip()
 
-    return summary
+    self.summary = summary
 
 class TVCriticInfo(MetaCriticInfo):
   def __init__(self, title, type, url):
@@ -147,7 +180,7 @@ class TVCriticInfo(MetaCriticInfo):
     self.season = self.__getSeason()
 
   def __getSeason(self):
-    soup = BeautifulSoup(self.page)
+    soup = self.page
     
     season = soup.find("div", 
       {"class":"product_title"}).find("a").renderContents()
@@ -159,7 +192,8 @@ class TVSeriesInfo(object):
     self.series = [];
     self.lock = threading.RLock()
 
-    self.__createSeries(firstTitle, firstType, firstLink)
+    self.series = self.__createSeries(firstTitle, firstType, firstLink)
+    
 
   def __updateSeries(self, seasonTitle, seasonType=None, seasonLink=None):
     if seasonType and seasonLink:
@@ -174,7 +208,7 @@ class TVSeriesInfo(object):
     firstSeason = TVCriticInfo(seasonTitle, seasonType, seasonLink)
     self.series.append(firstSeason)
 
-    soup = BeautifulSoup(firstSeason.page)
+    soup = firstSeason.page
 
     soup = soup.find('li', {'class': 'summary_detail product_seasons'})
 
@@ -191,4 +225,9 @@ class TVSeriesInfo(object):
     for thread in threading.enumerate():
       if thread is not threading.currentThread():
         thread.join()
+        
+    return self.__sortSeries()
+
+  def __sortSeries(self):
+    return sorted(self.series, key = lambda season: season.season)
       
