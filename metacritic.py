@@ -3,6 +3,39 @@ from bs4 import BeautifulSoup
 
 BASE_URL = "http://www.metacritic.com"
 
+class MetaCritic(object):
+  def __init__(self, info=None):
+    if not info:
+      self.title = None
+      self.type = None
+      self.criticscore = None
+      self.userscore = None
+      self.releaseDate = None
+      self.summary = None
+    else:
+      self.title = info.title
+      self.type = info.type
+      self.criticscore = info.criticscore
+      self.userscore = info.userscore
+      self.releaseDate = info.releaseDate
+      self.summary = info.summary
+
+class TVCritic(MetaCritic):
+  def __init__(self, info=None):
+    #if not info:
+    #  self.season = None
+    #else:
+    #  self.season = info.season
+    super(TVCritic, self).__init__(info)
+
+class TVSeries(object):
+  def __init__(self, info=None):
+    self.seasons = []
+    if info:
+      for season in info.series:
+        self.seasons.append(TVCritic(season))
+      self.title = info.title
+
 class MetaCriticInfo(object):
   def __init__(self):
     self.title = None;
@@ -13,11 +46,7 @@ class MetaCriticInfo(object):
     self.releaseDate = None;
     self.summary = None;
 
-  def __init__(self, title, type, url):
-    if title == None:
-      self.title = "Not Found"
-    else:
-      self.title = title
+  def __init__(self, type, url):
     
     if type == None:
       self.type = "Not Found"
@@ -33,43 +62,36 @@ class MetaCriticInfo(object):
     self.page = self.__getPage(url)
 
     #threaded functions below - none interleave
+    tiThread = threading.Thread(target = self.__getTitle)
 
     csThread = threading.Thread(target = self.__getCriticScore)
-    #csThread.start()
 
     usThread = threading.Thread(target = self.__getUserScore)
-    #usThread.start()
 
     rdThread = threading.Thread(target = self.__getReleaseDate)
-    #rdThread.start()
 
     sumThread = threading.Thread(target = self.__getSummary)
-    #sumThread.start()
 
-    #for thread in threading.enumerate():
-    #  if thread is not threading.currentThread():
-    #    thread.join()
-    
+    tiThread.start()
     csThread.start()
     usThread.start()
     rdThread.start()
     sumThread.start()
 
-    #self.__getCriticScore()
-    #self.__getUserScore()
-    #self.__getReleaseDate()
-    #self.__getSummary()
-
   def __getPage(self, url):
-    
-    try:      
-      page = urllib2.urlopen(url+"/details")
-      #page = requests.get(url+"/details")
-      #page = page.text
-      page = BeautifulSoup(page)
-    except urllib2.HTTPError, e:
-      page = "404"
-      
+   
+    success = False
+    while not success:
+      try:      
+        page = urllib2.urlopen(url+"/details")
+        #page = requests.get(url+"/details")
+        #page = page.text
+        page = BeautifulSoup(page)
+        success = True
+      except urllib2.HTTPError, e:
+        page = "404"
+        success = False
+
     return page
 
   def __getScore(self, soup):
@@ -91,6 +113,17 @@ class MetaCriticInfo(object):
 
     return percent
 
+  def __getTitle(self):
+    soup = self.page
+
+    if soup == "404":
+      return "Page Does Not Exist"
+
+    title = soup.find("div",
+      {"class":"product_title"}).find("a").renderContents()
+
+    self.title = title
+    
   def __getCriticScore(self):
     req = self.page
   
@@ -175,9 +208,9 @@ class MetaCriticInfo(object):
     self.summary = summary
 
 class TVCriticInfo(MetaCriticInfo):
-  def __init__(self, title, type, url):
-    super(TVCriticInfo, self).__init__(title, type, url)
-    self.season = self.__getSeason()
+  def __init__(self, type, url):
+    super(TVCriticInfo, self).__init__(type, url)
+    #self.season = self.__getSeason()
 
   def __getSeason(self):
     soup = self.page
@@ -188,24 +221,25 @@ class TVCriticInfo(MetaCriticInfo):
     return season
 
 class TVSeriesInfo(object):
-  def __init__(self, firstTitle, firstType, firstLink):
+  def __init__(self, firstType, firstLink):
     self.series = [];
+    self.title = "Mad Men";
     self.lock = threading.RLock()
 
-    self.series = self.__createSeries(firstTitle, firstType, firstLink)
+    self.series = self.__createSeries(firstType, firstLink)
     
 
-  def __updateSeries(self, seasonTitle, seasonType=None, seasonLink=None):
-    if seasonType and seasonLink:
-      season = TVCriticInfo(seasonTitle, seasonType, seasonLink)
+  def __updateSeries(self, season, seasonLink=None):
+    if season and seasonLink:
+      season = TVCriticInfo(season, seasonLink)
     else:
       season = seasonTitle
 
     with self.lock:
       self.series.append(season)
 
-  def __createSeries(self, seasonTitle, seasonType, seasonLink):
-    firstSeason = TVCriticInfo(seasonTitle, seasonType, seasonLink)
+  def __createSeries(self, seasonType, seasonLink):
+    firstSeason = TVCriticInfo(seasonType, seasonLink)
     self.series.append(firstSeason)
 
     soup = firstSeason.page
@@ -216,10 +250,12 @@ class TVSeriesInfo(object):
 
     seasonLinks = seasonData.find_all('a')
 
+    self.__getTitle(firstSeason.title)
+
     for link in seasonLinks:
       link = BASE_URL+link['href']
       mythread = threading.Thread(target = self.__updateSeries,
-        args = (seasonTitle, seasonType, link))
+        args = (seasonType, link))
       mythread.start()
     
     for thread in threading.enumerate():
@@ -228,6 +264,11 @@ class TVSeriesInfo(object):
         
     return self.__sortSeries()
 
+  def __getTitle(self, firstSeasonTitle):
+    title = re.search('[\w\s]*', firstSeasonTitle).group()
+
+    self.title = title
+
   def __sortSeries(self):
-    return sorted(self.series, key = lambda season: season.season)
+    return sorted(self.series, key = lambda season: season.title)
       
