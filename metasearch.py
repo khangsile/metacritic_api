@@ -1,4 +1,7 @@
-import urllib2, re, sys, time, json
+import urllib2
+import re
+import sys 
+import json
 from metacritic import *
 from bs4 import BeautifulSoup
 
@@ -11,7 +14,8 @@ def __getType(soup):
   return type
 
 def __getTitleInfo(soup):
-  titleSoup = soup.find('h3', 
+  titleSoup = soup.find(
+    'h3', 
     {'class': 'product_title basic_stat'})
 
   if titleSoup != None:
@@ -27,7 +31,7 @@ def __getLink(soup):
   if titleTag != None:
     link = titleTag.get('href')
   else:
-    link = "/does/not/exist"
+    link = None
 
   return link
 
@@ -65,7 +69,8 @@ def __getFirstResult(query, type):
 
   soup = BeautifulSoup(page)
   
-  soup = soup.find('li', 
+  soup = soup.find(
+    'li', 
     {'class': 'result first_result'})
   
   if not soup:

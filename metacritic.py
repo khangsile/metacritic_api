@@ -1,4 +1,8 @@
-import urllib2, re, sys, threading, time, thread, requests
+import urllib2
+import re
+import sys 
+import threading
+import thread 
 from bs4 import BeautifulSoup
 
 BASE_URL = "http://www.metacritic.com"
@@ -37,21 +41,13 @@ class TVSeries(object):
       self.title = info.title
 
 class MetaCriticInfo(object):
-  def __init__(self):
-    self.title = None;
-    self.type = None;
-    self.page = None;
-    self.criticscore = None;
-    self.userscore = None;
-    self.releaseDate = None;
-    self.summary = None;
-
+  
   def __init__(self, type, url):
     
-    if type == None:
-      self.type = "Not Found"
-    else:
+    if type != None:
       self.type = type
+    else:
+      self.type = None
     
     self.page = None
     self.criticscore = None
@@ -60,23 +56,20 @@ class MetaCriticInfo(object):
     self.summary = None
 
     self.page = self.__getPage(url)
+    
+    if (url):
+      #threaded functions below - none interleave
+      tiThread = threading.Thread(target = self.__getTitle)
+      csThread = threading.Thread(target = self.__getCriticScore)
+      usThread = threading.Thread(target = self.__getUserScore)
+      rdThread = threading.Thread(target = self.__getReleaseDate)
+      sumThread = threading.Thread(target = self.__getSummary)
 
-    #threaded functions below - none interleave
-    tiThread = threading.Thread(target = self.__getTitle)
-
-    csThread = threading.Thread(target = self.__getCriticScore)
-
-    usThread = threading.Thread(target = self.__getUserScore)
-
-    rdThread = threading.Thread(target = self.__getReleaseDate)
-
-    sumThread = threading.Thread(target = self.__getSummary)
-
-    tiThread.start()
-    csThread.start()
-    usThread.start()
-    rdThread.start()
-    sumThread.start()
+      tiThread.start()
+      csThread.start()
+      usThread.start()
+      rdThread.start()
+      sumThread.start()
 
   def __getPage(self, url):
    
@@ -84,8 +77,6 @@ class MetaCriticInfo(object):
     while not success:
       try:      
         page = urllib2.urlopen(url+"/details")
-        #page = requests.get(url+"/details")
-        #page = page.text
         page = BeautifulSoup(page)
         success = True
       except urllib2.HTTPError, e:
@@ -119,7 +110,8 @@ class MetaCriticInfo(object):
     if soup == "404":
       return "Page Does Not Exist"
 
-    title = soup.find("div",
+    title = soup.find(
+      "div",
       {"class":"product_title"}).find("a").renderContents()
 
     self.title = title
@@ -132,7 +124,8 @@ class MetaCriticInfo(object):
 
     soup = req
 
-    criticinfo = soup.find("div",
+    criticinfo = soup.find(
+      "div",
       {"class": "metascore_wrap feature_metascore"})
 
     percent = self.__getScore(criticinfo)
@@ -150,7 +143,8 @@ class MetaCriticInfo(object):
 
     soup = req
     
-    usersinfo = soup.find("div", 
+    usersinfo = soup.find(
+      "div", 
       {"class" : "userscore_wrap feature_userscore"})
 
     percent = self.__getScore(usersinfo)
@@ -168,7 +162,8 @@ class MetaCriticInfo(object):
     
     soup = req
         
-    releaseData = soup.find("li", 
+    releaseData = soup.find(
+      "li", 
       {"class" : "summary_detail release_data"})
 
     date = releaseData.find("span", { "class": "data"}).renderContents()
@@ -183,16 +178,19 @@ class MetaCriticInfo(object):
 
     soup = req
 
-    summaryData = soup.find("div", 
+    summaryData = soup.find(
+      "div", 
       {"class" : "summary_detail product_summary"})
 
-    blurbCollapsed = summaryData.find("span", 
+    blurbCollapsed = summaryData.find(
+      "span", 
       {"class": "blurb blurb_collapsed"})
 
     if blurbCollapsed:
       blurbCollapsed = blurbCollapsed.renderContents()
 
-    blurbExpanded = summaryData.find("span",
+    blurbExpanded = summaryData.find(
+      "span",
       {"class": "blurb blurb_expanded"})
 
     if blurbExpanded:
@@ -215,7 +213,8 @@ class TVCriticInfo(MetaCriticInfo):
   def __getSeason(self):
     soup = self.page
     
-    season = soup.find("div", 
+    season = soup.find(
+      "div", 
       {"class":"product_title"}).find("a").renderContents()
 
     return season
@@ -265,7 +264,7 @@ class TVSeriesInfo(object):
     return self.__sortSeries()
 
   def __getTitle(self, firstSeasonTitle):
-    title = re.search('[\w\s]*', firstSeasonTitle).group()
+    title = re.search('([\w\s\:]*): Season', firstSeasonTitle).group(1)
 
     self.title = title
 
