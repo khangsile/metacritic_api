@@ -26,11 +26,11 @@ class MetaCritic(object):
 
 class TVCritic(MetaCritic):
   def __init__(self, info=None):
-    #if not info:
-    #  self.season = None
-    #else:
-    #  self.season = info.season
-    super(TVCritic, self).__init__(info)
+    if not info:
+      self.season = None
+    else:
+      self.season = info.season
+      super(TVCritic, self).__init__(info)
 
 class TVSeries(object):
   def __init__(self, info=None):
@@ -71,6 +71,12 @@ class MetaCriticInfo(object):
       rdThread.start()
       sumThread.start()
 
+      tiThraed.join()
+      csThread.join()
+      usThread.join()
+      rdThread.join()
+      sumThread.join()
+
   def __getPage(self, url):
    
     success = False
@@ -108,7 +114,7 @@ class MetaCriticInfo(object):
     soup = self.page
 
     if soup == "404":
-      return "Page Does Not Exist"
+      return 
 
     title = soup.find(
       "div",
@@ -120,7 +126,7 @@ class MetaCriticInfo(object):
     req = self.page
   
     if req == "404":
-      return "Page Does Not Exist"
+      return 
 
     soup = req
 
@@ -139,7 +145,7 @@ class MetaCriticInfo(object):
     req = self.page
 
     if req == "404":
-      return "Page Does Not Exist"
+      return
 
     soup = req
     
@@ -158,7 +164,7 @@ class MetaCriticInfo(object):
     req = self.page
 
     if req == "404":
-      return "Page Does Not Exist"
+      return 
     
     soup = req
         
@@ -174,7 +180,7 @@ class MetaCriticInfo(object):
     req = self.page
 
     if req == "404":
-      return "Page Does Not Exist"
+      return 
 
     soup = req
 
@@ -208,16 +214,12 @@ class MetaCriticInfo(object):
 class TVCriticInfo(MetaCriticInfo):
   def __init__(self, type, url):
     super(TVCriticInfo, self).__init__(type, url)
-    #self.season = self.__getSeason()
+    self.__getSeason()
 
   def __getSeason(self):
-    soup = self.page
     
-    season = soup.find(
-      "div", 
-      {"class":"product_title"}).find("a").renderContents()
-
-    return season
+    self.season = re.search("Season (\d+)", self.title).group(1)
+    self.season = int(self.season)
 
 class TVSeriesInfo(object):
   def __init__(self, firstType, firstLink):
@@ -269,5 +271,5 @@ class TVSeriesInfo(object):
     self.title = title
 
   def __sortSeries(self):
-    return sorted(self.series, key = lambda season: season.title)
+    return sorted(self.series, key = lambda season: season.season)
       
