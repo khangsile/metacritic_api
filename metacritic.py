@@ -71,7 +71,7 @@ class MetaCriticInfo(object):
       rdThread.start()
       sumThread.start()
 
-      tiThraed.join()
+      tiThread.join()
       csThread.join()
       usThread.join()
       rdThread.join()
